@@ -47,7 +47,7 @@ uint8_t SDHC_Init(void)
 	while (SDHC_PRSSTAT & (SDHC_PRSSTAT_CIHB_MASK | SDHC_PRSSTAT_CDIHB_MASK)) { };
 
 	/* Init GPIO again */
-	SDHC_InitGPIO();
+	SDHC_ConfigGPIO();
 
 	/* Enable requests */
 	SDHC_IRQSTAT = 0xFFFF;
@@ -73,7 +73,7 @@ uint8_t SDHC_Init(void)
 }
 
 
-void SDHC_InitGPIO(void)
+void SDHC_ConfigGPIO(void)
 {
   PORTE_PCR0 = PORT_PCR_MUX(4) | PORT_PCR_PS_MASK | PORT_PCR_PE_MASK | PORT_PCR_DSE_MASK; /* SDHC.D1  */
   PORTE_PCR1 = PORT_PCR_MUX(4) | PORT_PCR_PS_MASK | PORT_PCR_PE_MASK | PORT_PCR_DSE_MASK; /* SDHC.D0  */
@@ -251,7 +251,7 @@ uint8_t SDHC_InitCard(void)
   // and SDHC_SetClock() for 50 MHz config
 
   // Init GPIO
-  SDHC_InitGPIO();
+  SDHC_ConfigGPIO();
 
   return sdCardDesc.status;
 }
@@ -260,7 +260,6 @@ uint8_t SDHC_InitCard(void)
 // sends the command to SDcard
 int SDHC_Send_CMD(uint32_t xfertyp)
 {
-
     // Card removal check preparation
     SDHC_IRQSTAT |= SDHC_IRQSTAT_CRM_MASK;
 
@@ -297,14 +296,13 @@ int SDHC_Send_CMD(uint32_t xfertyp)
 
 int SDHC_Send_CMD0(void)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = 0;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD0) | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_NO));
 
-  result = SDHC_Send_CMD(xfertyp);
+
+  result = SDHC_Send_CMD(CMD0);
 
   if(result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -315,15 +313,11 @@ int SDHC_Send_CMD0(void)
 
 int SDHC_Send_CMD8(uint32_t cond)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = cond;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD8) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
-
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(CMD8);
 
   if(result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -353,8 +347,7 @@ int SDHC_Send_ACMD41(uint32_t cond)
   SDHC_CMDARG = cond;
 
   // Send 41CMD
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_ACMD41) | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(ACMD41);
 
   if (result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -367,15 +360,11 @@ int SDHC_Send_ACMD41(uint32_t cond)
 // sends CMD2 to identify card
 int SDHC_Send_CMD2(void)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = 0;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD2) | SDHC_XFERTYP_CCCEN_MASK |
-             SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_136));
-
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(CMD2);
 
   if(result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -387,15 +376,12 @@ int SDHC_Send_CMD2(void)
 // sends CMD 3 to get address
 int SDHC_Send_CMD3(void)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = 0;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD3) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
 
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(CMD3);
 
   if (result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -405,15 +391,11 @@ int SDHC_Send_CMD3(void)
 
 int SDHC_Send_CMD7(uint32_t address)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = address;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD7) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48BUSY));
-
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(CMD7);
 
   if(result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -424,15 +406,11 @@ int SDHC_Send_CMD7(uint32_t address)
 
 int SDHC_Send_CMD9(uint32_t address)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = address;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD9) | SDHC_XFERTYP_CCCEN_MASK |
-             SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_136));
-
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(CMD9);
 
   if (result == SDHC_RESULT_OK) {
         //(void)SDHC_CMDRSP0;
@@ -459,15 +437,12 @@ uint32_t SDHC_WaitStatus(uint32_t mask)
 
 int SDHC_Send_CMD16(uint32_t block_size)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = block_size;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD16) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
 
-  result = SDHC_Send_CMD(xfertyp);
+  result = SDHC_Send_CMD(CMD16);
 
   if (result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -498,11 +473,9 @@ int SDHC_Send_ACMD6(uint32_t address, uint32_t width)
   }
   SDHC_CMDARG = width;
 
-  // Send 6CMD
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD6) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
 
-  result = SDHC_Send_CMD(xfertyp);
+
+  result = SDHC_Send_CMD(ACMD6);
 
   if(result == SDHC_RESULT_OK) {
         (void)SDHC_CMDRSP0;
@@ -514,6 +487,7 @@ int SDHC_Send_ACMD6(uint32_t address, uint32_t width)
 
 int SDHC_ReadBlock(uint32_t* pData)
 {
+	int j;
 	uint32_t i, irqstat;
 	const uint32_t i_max = ((SDHC_BLOCK_SIZE) / (4 * SDHC_FIFO_BUFFER_SIZE));
 
@@ -533,35 +507,22 @@ int SDHC_ReadBlock(uint32_t* pData)
 		{
 			__asm("NOP");
 		}
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
-		*pData++ = SDHC_DATPORT;
+		for(j=0;j<15;j++)
+			*pData++ = SDHC_DATPORT;
+
 	}
 	return SDHC_RESULT_OK;
 }
 
 int SDHC_Send_CMD12(void)
 {
-  uint32_t xfertyp;
+
   int result;
 
   SDHC_CMDARG = 0;
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD12) | SDHC_XFERTYP_CMDTYP(SDHC_XFERTYP_CMDTYP_ABORT) |
-                 SDHC_XFERTYP_CICEN_MASK | SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48BUSY));
 
-  result = SDHC_Send_CMD(xfertyp);
+
+  result = SDHC_Send_CMD(CMD12);
 
   if (result == SDHC_RESULT_OK) {
   }
@@ -571,18 +532,15 @@ int SDHC_Send_CMD12(void)
 
 int SDHC_Send_CMD17(uint32_t sector)
 {
-  uint32_t xfertyp;
   int result;
 
   SDHC_CMDARG = sector;
 
   SDHC_BLKATTR = SDHC_BLKATTR_BLKCNT(1) | 512;
 
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD17) | SDHC_XFERTYP_CICEN_MASK |
-                 SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48) |
-                 SDHC_XFERTYP_DTDSEL_MASK | SDHC_XFERTYP_DPSEL_MASK);
 
-  result = SDHC_Send_CMD(xfertyp);
+
+  result = SDHC_Send_CMD(CMD17);
   if (result == SDHC_RESULT_OK) {
 	(void)SDHC_CMDRSP0;
   }
@@ -596,5 +554,6 @@ int SDHC_Read_Sector(uint32_t sector,uint32_t* pData)
 	int result = 0;
 	SDHC_Send_CMD17(sector);
 	result = SDHC_ReadBlock(pData);
+	SDHC -> SYSCTL |= SDHC_SYSCTL_RSTC_MASK;
 	return result;
 }

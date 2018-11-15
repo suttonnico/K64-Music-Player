@@ -14,10 +14,12 @@
 #include "fsl_debug_console.h"
 #include "fsl_dac.h"
 
-#define MAX_LEN 100000
+#define MAX_LEN 1000000
 #define start_cd 0x46464952
 #define MAX_SONGS 6
 #define BUFFER_LENGTH 128
+#define MAX_VOLUME 20
+
 #include "SysTick.h"
 uint32_t pData[128];
 int song_starts[MAX_SONGS];
@@ -31,6 +33,27 @@ char current_buffer_out = 0;
 
 int current_sector = 0;
 char feed =  0;
+char play_flag = 1;
+char volume = 10;
+
+
+
+void Player_Up_Volume(void)
+{
+	if(volume < MAX_VOLUME)
+		volume += 1;
+}
+
+void Player_Down_Volume(void)
+{
+	if(volume > 0)
+		volume -= 1;
+}
+
+void Player_Play(void)
+{
+	play_flag *= -1;
+}
 
 uint8_t Player_Init(void)
 {
@@ -70,6 +93,7 @@ uint8_t Player_Init(void)
 			last_song=i-1;
 */
 	song_starts[0] = 40992;
+	song_starts[1]=144632;//
 	//for(i=0;i<=last_song;i++)
 
 
@@ -89,13 +113,14 @@ int convert_num(uint32_t x)
 	}
 	else
 		out =  (int)(((int)((float)x*2048/(float)0x7FFF)))+2048;
-	return out;
+	return out/(MAX_VOLUME)*volume;
 }
 
 void Player_Play_Song(int song_num)
 {
 	int i;
 	int dif = 54;
+	play_flag =1;
 	//select song
 	current_song_num = song_num;
 	current_sector = song_starts[current_song_num];	//54 es el offset con el inicio del track
@@ -177,14 +202,14 @@ void test_play_sample(void)
 	}
 	test_set_DAC(right_buffer[current_buffer_out*BUFFER_LENGTH+current_sample_out++]*4096.0/10);
 	*/
-
-	if(current_buffer_out == 0)
-		test_buf_0();
-	else
-		test_buf_1();
+	if(play_flag == 1)
+		if(current_buffer_out == 0)
+			test_buf_0();
+		else
+			test_buf_1();
 
 	//PRINTF("%d\n",BUFFER[current_sample_out++]*4096.0/255/2);
-	}
+}
 
 
 #endif /* SOURCES_PLAYER_C_ */

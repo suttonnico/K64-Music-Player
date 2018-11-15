@@ -66,67 +66,8 @@ void DAC_Init(DAC_Type *base,  dac_config_t *config)
     //enable dac
     base->C0 |= DAC_C0_DACEN_MASK;
 }
-/*
-void DAC_Deinit(DAC_Type *base)
-{
-    DAC_Enable(base, false);
 
-#if !(defined(FSL_SDK_DISABLE_DRIVER_CLOCK_CONTROL) && FSL_SDK_DISABLE_DRIVER_CLOCK_CONTROL)
 
-    CLOCK_DisableClock(s_dacClocks[DAC_GetInstance(base)]);
-#endif
-}
-
-void DAC_GetDefaultConfig(dac_config_t *config)
-{
-    //assert(NULL != config);
-
-    config->referenceVoltageSource = 1U;//kDAC_ReferenceVoltageSourceVref2;
-    config->enableLowPowerMode = false;
-}
-
-void DAC_SetBufferConfig(DAC_Type *base, const dac_buffer_config_t *config)
-{
-    assert(NULL != config);
-
-    uint8_t tmp8;
-
-    tmp8 = base->C0 & ~(DAC_C0_DACTRGSEL_MASK);
-    if (kDAC_BufferTriggerBySoftwareMode == config->triggerMode)
-    {
-        tmp8 |= DAC_C0_DACTRGSEL_MASK;
-    }
-    base->C0 = tmp8;
-
-    tmp8 = base->C1 &
-           ~(
-#if defined(FSL_FEATURE_DAC_HAS_WATERMARK_SELECTION) && FSL_FEATURE_DAC_HAS_WATERMARK_SELECTION
-               DAC_C1_DACBFWM_MASK |
-#endif
-        DAC_C1_DACBFMD_MASK);
-#if defined(FSL_FEATURE_DAC_HAS_WATERMARK_SELECTION) && FSL_FEATURE_DAC_HAS_WATERMARK_SELECTION
-    tmp8 |= DAC_C1_DACBFWM(config->watermark);
-#endif
- tmp8 |= DAC_C1_DACBFMD(config->workMode);
-    base->C1 = tmp8;
-
-    tmp8 = base->C2 & ~DAC_C2_DACBFUP_MASK;
-    tmp8 |= DAC_C2_DACBFUP(config->upperLimit);
-    base->C2 = tmp8;
-}
-
-void DAC_GetDefaultBufferConfig(dac_buffer_config_t *config)
-{
-    assert(NULL != config);
-
-    config->triggerMode = kDAC_BufferTriggerBySoftwareMode;
-#if defined(FSL_FEATURE_DAC_HAS_WATERMARK_SELECTION) && FSL_FEATURE_DAC_HAS_WATERMARK_SELECTION
-    config->watermark = kDAC_BufferWatermark1Word;
-#endif
-    config->workMode = kDAC_BufferWorkAsNormalMode;
-    config->upperLimit = DAC_DATL_COUNT - 1U;
-}
-*/
 void DAC_SetBufferValue(DAC_Type *base, uint8_t index, uint16_t value)
 {
     assert(index < DAC_DATL_COUNT);
