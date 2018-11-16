@@ -95,7 +95,7 @@ void IC_PISR (void)
 					cont = 0;
 
 				}
-				PRINTF("%d\n",getValue());
+//				PRINTF("%d\n",getValue());
 			}
 
 		}
