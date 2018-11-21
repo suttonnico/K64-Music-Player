@@ -96,6 +96,8 @@
 #define ACMD6		(SDHC_XFERTYP_CMDINX(SDHC_CMD6) | SDHC_XFERTYP_CICEN_MASK | SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48))
 #define CMD12		(SDHC_XFERTYP_CMDINX(SDHC_CMD12) | SDHC_XFERTYP_CMDTYP(SDHC_XFERTYP_CMDTYP_ABORT) | SDHC_XFERTYP_CICEN_MASK | SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48BUSY))
 #define CMD17		(SDHC_XFERTYP_CMDINX(SDHC_CMD17) | SDHC_XFERTYP_CICEN_MASK | SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48) | SDHC_XFERTYP_DTDSEL_MASK | SDHC_XFERTYP_DPSEL_MASK)
+#define CMD55		(SDHC_XFERTYP_CMDINX(SDHC_CMD55) | SDHC_XFERTYP_CICEN_MASK | SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48))
+
 
 #define SDHC_FIFO_BUFFER_SIZE               16
 #define SDHC_BLOCK_SIZE                     512
@@ -117,7 +119,7 @@ typedef struct {
 	uint32_t address;
 	uint32_t numBlocks;
 	uint32_t lastCardStatus;
-} SD_CARD_DESCRIPTOR;
+} CARD;
 
 
 enum {
@@ -135,21 +137,21 @@ uint8_t SDHC_Init(void);
 void SDHC_SetClock(uint32_t sysctl);
 uint8_t SDHC_InitCard(void);
 
-int SDHC_Send_CMD_new(uint32_t CMD,uint32_t arg);
-int SDHC_Send_CMD(uint32_t xfertyp);
-int SDHC_Send_CMD0(void);
-int SDHC_Send_CMD2(void);
-int SDHC_Send_CMD3(void);
-int SDHC_Send_CMD7(uint32_t address);
-int SDHC_Send_CMD8(uint32_t cond);
-int SDHC_Send_CMD9(uint32_t address);
+int SDHC_Send_CMD(uint32_t CMD,uint32_t arg);
+//int SDHC_Send_CMD(uint32_t xfertyp);
+//int SDHC_Send_CMD0(void);
+//int SDHC_Send_CMD2(void);
+//int SDHC_Send_CMD3(void);
+//int SDHC_Send_CMD7(uint32_t address);
+//int SDHC_Send_CMD8(uint32_t cond);
+//int SDHC_Send_CMD9(uint32_t address);
 uint32_t SDHC_WaitStatus(uint32_t mask);
-int SDHC_Send_CMD16(uint32_t block_size);
-int SDHC_Send_ACMD6(uint32_t address, uint32_t width);
+//int SDHC_Send_CMD16(uint32_t block_size);
+//int SDHC_Send_ACMD6(uint32_t address, uint32_t width);
 int SDHC_ReadBlock(uint32_t* pData);
-int SDHC_Send_ACMD41(uint32_t cond);
-int SDHC_Send_CMD12(void);
-int SDHC_Send_CMD17(uint32_t sector);
+//int SDHC_Send_ACMD41(uint32_t cond);
+//int SDHC_Send_CMD12(void);
+//int SDHC_Send_CMD17(uint32_t sector);
 int SDHC_Read_Sector(uint32_t sector,uint32_t* pData);
 
 #endif /* SOURCES_SDHC_H_ */

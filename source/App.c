@@ -1,15 +1,15 @@
 
 #include "App.h"
-#include "dac_adc.h"
+//#include "dac_adc.h"
 #include "fsl_debug_console.h"
 #include "Player.h"
-#include "SysTick.h"
+//#include "SysTick.h"
 //#include "actions.h"
 #include "IRDriver.h"
 #include <stdlib.h>
 #include <string.h>
 //#include <unistd.h>
-#include "Pin.h"
+
 
 
 
@@ -24,7 +24,7 @@ int unscramble(uint32_t x)
 static int i = 0;
 void App_Init (void)
 {
-	FTM_Init();
+//	FTM_Init();
 	IC_Init();
 
 
@@ -34,13 +34,12 @@ void App_Init (void)
 
 	Player_Init();
 	Player_Play_Song(0);
-	SysTick_Init (2720L,test_play_sample);
+//	SysTick_Init (2720L,Player_Play_Sample);
 
 
 }
 void App_Run (void)
 {
-
 
 //	PRINTF("%d\n",getValue());
 	Player_Fill_Buffer();

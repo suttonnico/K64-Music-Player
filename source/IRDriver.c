@@ -147,6 +147,8 @@ void IC_Init (void){
 	GPIO_SetDirPin(PTC, 3, GPIO__OUT);
 	GPIO_SetPin(PTC, 3);
 
+	FTM_Init();
+
 	PCRstr UserPCR;
 	UserPCR.PCR=false;													// Todo apagado por default, prendo lo necesario
 	UserPCR.FIELD.DSE=true;

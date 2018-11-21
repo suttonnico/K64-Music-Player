@@ -8,11 +8,19 @@
 #ifndef SOURCES_PLAYER_C_
 #define SOURCES_PLAYER_C_
 
-#include "dac_adc.h"
+//#include "dac_adc.h"
 #include "Player.h"
-#include "fsl_dac.h"
+#include "dac.h"
 #include "fsl_debug_console.h"
 #include "fsl_dac.h"
+#include "SDHC.h"
+#include "SysTick.h"
+
+
+//DEBUG
+#include "PORT.h"
+#include "GPIO.H"
+const PCRstr PORT_OUT_PUSHPULL2 = {0, 0, 0, 0, 0, 0, 1, 0, PORT_mGPIO, 0, 0, PORT_eDisabled, 0, 0, 0};
 
 #define MAX_LEN 1000000
 #define start_cd 0x46464952
@@ -36,7 +44,18 @@ char feed =  0;
 char play_flag = 1;
 char volume = 10;
 
+void Player_Play_Sample(void)
+{
 
+	if(play_flag == 1)
+	{
+		if(current_buffer_out == 0)
+			test_buf_0();
+		else
+			test_buf_1();
+	}
+	//PRINTF("%d\n",BUFFER[current_sample_out++]*4096.0/255/2);
+}
 
 void Player_Up_Volume(void)
 {
@@ -57,15 +76,21 @@ void Player_Play(void)
 
 uint8_t Player_Init(void)
 {
-	int	ok = 0;
-	int i = 0;
-	int j = 0;
-	int song_ind = 0;
-	int last_song = 0;
+
+//	int i = 0;
+//	int j = 0;
+//	int song_ind = 0;
+//	int last_song = 0;
 
 
+	//DEBUG
+	PORT_Init();
+	PORT_Configure2(PORTC, 2, PORT_OUT_PUSHPULL2);
+	GPIO_SetDirPin(PTC, 2, GPIO__OUT);
+	GPIO_SetPin(PTC, 2);
 
-	ok =SDHC_Init();
+
+	SDHC_Init();
 	uint8_t card_status;
 	PRINTF("SD INIT\n");
 	card_status =SDHC_InitCard();
@@ -94,8 +119,8 @@ uint8_t Player_Init(void)
 */
 	song_starts[0] = 40992;
 	song_starts[1]=144632;//
-	//for(i=0;i<=last_song;i++)
 
+	SysTick_Init (2720L,Player_Play_Sample);
 
 	return card_status;
 
@@ -143,6 +168,10 @@ void Player_Play_Song(int song_num)
 void Player_Fill_Buffer(void)
 {
 	if(feed == 1){
+
+		//DEBUG
+		GPIO_SetPin(PTC, 2);
+
 	int i;
 	SDHC_Read_Sector(current_sector++,pData);
 	//PRINTF("sector %d\n",current_sector);
@@ -151,14 +180,18 @@ void Player_Fill_Buffer(void)
 		left_buffer[i+BUFFER_LENGTH*current_buffer_in] = (pData[i]&0xFFFF0000)>>16;
 		right_buffer[i+BUFFER_LENGTH*current_buffer_in] = pData[i]&0x0000FFFF;
 	}
-	feed = 0;}
+	feed = 0;
+
+	//DEBUG
+	GPIO_ClearPin(PTC, 2);
+	}
 }
 
 void test_buf_0(void)
 {
 	//PRINTF("%d\t",left_buffer[current_buffer_out*BUFFER_LENGTH+current_sample_out]);
 	//PRINTF("%d\n",convert_num(left_buffer[current_buffer_out*BUFFER_LENGTH+current_sample_out]));
-	test_set_DAC(convert_num(right_buffer[current_sample_out++]));
+	DAC_Set_Value((uint16_t)convert_num(right_buffer[current_sample_out++]));
 	//test_set_DAC(BUFFER[current_sample_out++]*2048/0xFF+2048);
 
 	if(current_sample_out==BUFFER_LENGTH)
@@ -175,7 +208,7 @@ void test_buf_1(void)
 {
 	//PRINTF("%d\t",left_buffer[current_buffer_out*BUFFER_LENGTH+current_sample_out]);
 	//PRINTF("%d\n",convert_num(right_buffer[current_buffer_out*BUFFER_LENGTH+current_sample_out++])/0x7FFF*4+2048);
-	test_set_DAC(convert_num(right_buffer[BUFFER_LENGTH+current_sample_out++]));
+	DAC_Set_Value((uint16_t)convert_num(right_buffer[BUFFER_LENGTH+current_sample_out++]));
 	//test_set_DAC(BUFFER[current_sample_out++]*2048/0xFF+2048);
 	if(current_sample_out==BUFFER_LENGTH)
 	{
@@ -188,28 +221,7 @@ void test_buf_1(void)
 	}
 }
 
-void test_play_sample(void)
-{
-	//PRINTF("%d\n",right_buffer[current_sample_out++]);
-	/*
-	if(current_sample_out==BUFFER_LENGTH)
-	{
-		current_sample_out = 0;
-		current_buffer_out = (current_buffer_out+1)%2;
-		current_buffer_in = (current_buffer_out+1)%2;
-		Player_Fill_Buffer();
 
-	}
-	test_set_DAC(right_buffer[current_buffer_out*BUFFER_LENGTH+current_sample_out++]*4096.0/10);
-	*/
-	if(play_flag == 1)
-		if(current_buffer_out == 0)
-			test_buf_0();
-		else
-			test_buf_1();
-
-	//PRINTF("%d\n",BUFFER[current_sample_out++]*4096.0/255/2);
-}
 
 
 #endif /* SOURCES_PLAYER_C_ */

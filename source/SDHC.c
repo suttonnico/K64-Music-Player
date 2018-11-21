@@ -6,7 +6,7 @@
  */
 
 #include "SDHC.h"
-static SD_CARD_DESCRIPTOR sdCardDesc;
+static CARD card;
 
 
 uint8_t SDHC_Init(void)
@@ -14,17 +14,14 @@ uint8_t SDHC_Init(void)
 
 	int i;
 
-	// Enable clock to SDHC peripheral
+	// Enable clocks
 	SIM_SCGC3 |= SIM_SCGC3_SDHC_MASK;
-
-	// Enable clock to PORT E peripheral (all SDHC BUS signals)
 	SIM_SCGC5 |= SIM_SCGC5_PORTE_MASK;
-
 	SIM_SCGC6 |= SIM_SCGC6_DMAMUX_MASK;
 	SIM_SCGC7 |= SIM_SCGC7_DMA_MASK;
 
 	// Enable DMA access via MPU (not currently used)
-	MPU_CESR &= ~MPU_CESR_VLD_MASK;
+	//MPU_CESR &= ~MPU_CESR_VLD_MASK;
 
 	// De-init GPIO - to prevent unwanted clocks on bus
 	SDHC_ReleaseGPIO();
@@ -127,48 +124,49 @@ uint8_t SDHC_InitCard(void)
 
   resS = SDHC_Init();
 
-  sdCardDesc.status = resS;
-  sdCardDesc.address = 0;
-  sdCardDesc.highCapacity = 0;
-  sdCardDesc.version2 = 0;
-  sdCardDesc.numBlocks = 0;
+  card.status = resS;
+  card.address = 0;
+  card.highCapacity = 0;
+  card.version2 = 0;
+  card.numBlocks = 0;
 
   if (resS)
     return resS;
 
-  resR = SDHC_Send_CMD_new(CMD0,0);
+  resR = SDHC_Send_CMD(CMD0,0);
   if (resR) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
-  resR = SDHC_Send_CMD_new(CMD8,0x000001AA); // 3.3V and AA check pattern
+  resR = SDHC_Send_CMD(CMD8,0x000001AA); // 3.3V and AA check pattern
   if (resR == SDHC_RESULT_OK) {
       if (SDHC_CMDRSP0 != 0x000001AA) {
-        sdCardDesc.status = SDHC_STATUS_NOINIT;
+        card.status = SDHC_STATUS_NOINIT;
         return SDHC_STATUS_NOINIT;
       }
-      sdCardDesc.highCapacity = 1;
+      card.highCapacity = 1;
   } else if (resR == SDHC_RESULT_NO_RESPONSE) {
       // version 1 cards do not respond to CMD8
   } else {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
-
-  if (SDHC_Send_ACMD41(0)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  SDHC_Send_CMD(CMD55,0);
+  if (SDHC_Send_CMD(ACMD41,0)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
   if (SDHC_CMDRSP0 & 0x300000) {
     uint32_t condition = 0x00300000;
-    if (sdCardDesc.highCapacity)
+    if (card.highCapacity)
             condition |= 0x40000000;
     i = 0;
     do {
         i++;
-        if (SDHC_Send_ACMD41(condition)) {
+        SDHC_Send_CMD(CMD55,0);
+        if (SDHC_Send_CMD(ACMD41,condition)) {
           resS = SDHC_STATUS_NOINIT;
           break;
         }
@@ -179,26 +177,26 @@ uint8_t SDHC_InitCard(void)
       return resS;
 
     if ((i >= SDHC_INITIALIZATION_MAX_CNT) || (!(SDHC_CMDRSP0 & 0x40000000)))
-        sdCardDesc.highCapacity = 0;
+        card.highCapacity = 0;
   }
 
   // Card identify
-  if(SDHC_Send_CMD_new(CMD2,0)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  if(SDHC_Send_CMD(CMD2,0)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
   // Get card address
-  if(SDHC_Send_CMD_new(CMD3,0)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  if(SDHC_Send_CMD(CMD3,0)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
-  sdCardDesc.address = SDHC_CMDRSP0 & 0xFFFF0000;
+  card.address = SDHC_CMDRSP0 & 0xFFFF0000;
 
   // Get card parameters
-  if(SDHC_Send_CMD9(sdCardDesc.address)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  if(SDHC_Send_CMD(CMD9,card.address)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
@@ -209,31 +207,32 @@ uint8_t SDHC_InitCard(void)
     c_size = SDHC_CMDRSP2 & 0x03;
     c_size = (c_size << 10) | (SDHC_CMDRSP1 >> 22);
     c_size_mult = (SDHC_CMDRSP1 >> 7) & 0x07;
-    sdCardDesc.numBlocks = (c_size + 1) * (1 << (c_size_mult + 2)) * (1 << (read_bl_len - 9));
+    card.numBlocks = (c_size + 1) * (1 << (c_size_mult + 2)) * (1 << (read_bl_len - 9));
   } else {
     uint32_t c_size;
-    sdCardDesc.version2 = 1;
+    card.version2 = 1;
     c_size = (SDHC_CMDRSP1 >> 8) & 0x003FFFFF;
-    sdCardDesc.numBlocks = (c_size + 1) << 10;
+    card.numBlocks = (c_size + 1) << 10;
   }
 
   // Select card
-  if (SDHC_Send_CMD_new(CMD7,sdCardDesc.address)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  if (SDHC_Send_CMD(CMD7,card.address)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
   // Set Block Size to 512
   // Block Size in SDHC Controller is already set to 512 by SDHC_Init();
   // Set 512 Block size in SD card
-  if (SDHC_Send_CMD16(SDHC_BLOCK_SIZE)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  if (SDHC_Send_CMD(CMD16,SDHC_BLOCK_SIZE)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
   // Set 4 bit data bus width
-  if (SDHC_Send_ACMD6(sdCardDesc.address, 2)) {
-    sdCardDesc.status = SDHC_STATUS_NOINIT;
+  SDHC_Send_CMD(CMD55,card.address);
+  if (SDHC_Send_CMD(ACMD6,2)) {
+    card.status = SDHC_STATUS_NOINIT;
     return SDHC_STATUS_NOINIT;
   }
 
@@ -246,18 +245,15 @@ uint8_t SDHC_InitCard(void)
 
   // Set the SDHC default baud rate
   SDHC_SetClock(SDHC_SYSCTL_50MHZ);
-  // TODO: use CMD6 and CMD9 to detect if card supports 50 MHz
-  // then use CMD4 to configure card to high speed mode,
-  // and SDHC_SetClock() for 50 MHz config
 
   // Init GPIO
   SDHC_ConfigGPIO();
 
-  return sdCardDesc.status;
+  return card.status;
 }
 
 // sends the command to SDcard
-int SDHC_Send_CMD_new(uint32_t CMD,uint32_t arg)
+int SDHC_Send_CMD(uint32_t CMD,uint32_t arg)
 {
 	SDHC_CMDARG = arg;
 
@@ -298,112 +294,48 @@ int SDHC_Send_CMD_new(uint32_t CMD,uint32_t arg)
 
 
 
-// sends the command to SDcard
-int SDHC_Send_CMD(uint32_t xfertyp)
-{
-    // Card removal check preparation
-    SDHC_IRQSTAT |= SDHC_IRQSTAT_CRM_MASK;
-
-    // Wait for cmd line idle // to do timeout PRSSTAT[CDIHB] and the PRSSTAT[CIHB]
-    while ((SDHC_PRSSTAT & SDHC_PRSSTAT_CIHB_MASK) || (SDHC_PRSSTAT & SDHC_PRSSTAT_CDIHB_MASK))
-        { };
-
-    SDHC_XFERTYP = xfertyp;
-
-    /* Wait for response */
-    if (SDHC_WaitStatus(SDHC_IRQSTAT_CIE_MASK | SDHC_IRQSTAT_CEBE_MASK | SDHC_IRQSTAT_CCE_MASK | SDHC_IRQSTAT_CC_MASK) != SDHC_IRQSTAT_CC_MASK) {
-	SDHC_IRQSTAT |= SDHC_IRQSTAT_CTOE_MASK | SDHC_IRQSTAT_CIE_MASK | SDHC_IRQSTAT_CEBE_MASK |
-						SDHC_IRQSTAT_CCE_MASK | SDHC_IRQSTAT_CC_MASK;
-        return SDHC_RESULT_ERROR;
-    }
-
-    /* Check card removal */
-    if (SDHC_IRQSTAT & SDHC_IRQSTAT_CRM_MASK) {
-        SDHC_IRQSTAT |= SDHC_IRQSTAT_CTOE_MASK | SDHC_IRQSTAT_CC_MASK;
-        return SDHC_RESULT_NOT_READY;
-    }
-
-    /* Get response, if available */
-    if (SDHC_IRQSTAT & SDHC_IRQSTAT_CTOE_MASK) {
-        SDHC_IRQSTAT |= SDHC_IRQSTAT_CTOE_MASK | SDHC_IRQSTAT_CC_MASK;
-        return SDHC_RESULT_NO_RESPONSE;
-    }
-
-    SDHC_IRQSTAT |= SDHC_IRQSTAT_CC_MASK;
-
-    return SDHC_RESULT_OK;
-
-}
-
-
-
-
-
-int SDHC_Send_ACMD41(uint32_t cond)
-{
-  uint32_t xfertyp;
-  int result;
-
-  SDHC_CMDARG = 0;
-  // first send CMD 55 Application specific command
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD55) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
-
-  result = SDHC_Send_CMD(xfertyp);
-
-  if (result == SDHC_RESULT_OK) {
-        (void)SDHC_CMDRSP0;
-  } else {
-	return result;
-  }
-
-  SDHC_CMDARG = cond;
-
-  // Send 41CMD
-  result = SDHC_Send_CMD(ACMD41);
-
-  if (result == SDHC_RESULT_OK) {
-        (void)SDHC_CMDRSP0;
-  }
-
-  return result;
-}
+//// sends the command to SDcard
+//int SDHC_Send_CMD(uint32_t xfertyp)
+//{
+//    // Card removal check preparation
+//    SDHC_IRQSTAT |= SDHC_IRQSTAT_CRM_MASK;
+//
+//    // Wait for cmd line idle // to do timeout PRSSTAT[CDIHB] and the PRSSTAT[CIHB]
+//    while ((SDHC_PRSSTAT & SDHC_PRSSTAT_CIHB_MASK) || (SDHC_PRSSTAT & SDHC_PRSSTAT_CDIHB_MASK))
+//        { };
+//
+//    SDHC_XFERTYP = xfertyp;
+//
+//    /* Wait for response */
+//    if (SDHC_WaitStatus(SDHC_IRQSTAT_CIE_MASK | SDHC_IRQSTAT_CEBE_MASK | SDHC_IRQSTAT_CCE_MASK | SDHC_IRQSTAT_CC_MASK) != SDHC_IRQSTAT_CC_MASK) {
+//	SDHC_IRQSTAT |= SDHC_IRQSTAT_CTOE_MASK | SDHC_IRQSTAT_CIE_MASK | SDHC_IRQSTAT_CEBE_MASK |
+//						SDHC_IRQSTAT_CCE_MASK | SDHC_IRQSTAT_CC_MASK;
+//        return SDHC_RESULT_ERROR;
+//    }
+//
+//    /* Check card removal */
+//    if (SDHC_IRQSTAT & SDHC_IRQSTAT_CRM_MASK) {
+//        SDHC_IRQSTAT |= SDHC_IRQSTAT_CTOE_MASK | SDHC_IRQSTAT_CC_MASK;
+//        return SDHC_RESULT_NOT_READY;
+//    }
+//
+//    /* Get response, if available */
+//    if (SDHC_IRQSTAT & SDHC_IRQSTAT_CTOE_MASK) {
+//        SDHC_IRQSTAT |= SDHC_IRQSTAT_CTOE_MASK | SDHC_IRQSTAT_CC_MASK;
+//        return SDHC_RESULT_NO_RESPONSE;
+//    }
+//
+//    SDHC_IRQSTAT |= SDHC_IRQSTAT_CC_MASK;
+//
+//    return SDHC_RESULT_OK;
+//
+//}
 
 
 
 
 
 
-int SDHC_Send_CMD7(uint32_t address)
-{
-  int result;
-
-  SDHC_CMDARG = address;
-
-  result = SDHC_Send_CMD(CMD7);
-
-  if(result == SDHC_RESULT_OK) {
-        (void)SDHC_CMDRSP0;
-  }
-  return result;
-}
-
-
-int SDHC_Send_CMD9(uint32_t address)
-{
-  int result;
-
-  SDHC_CMDARG = address;
-
-  result = SDHC_Send_CMD(CMD9);
-
-  if (result == SDHC_RESULT_OK) {
-        //(void)SDHC_CMDRSP0;
-	sdCardDesc.tranSpeed = SDHC_CMDRSP2 >> 24;
-  }
-
-  return result;
-}
 uint32_t SDHC_WaitStatus(uint32_t mask)
 {
     uint32_t             result;
@@ -420,53 +352,6 @@ uint32_t SDHC_WaitStatus(uint32_t mask)
     return 0;
 }
 
-int SDHC_Send_CMD16(uint32_t block_size)
-{
-  int result;
-
-  SDHC_CMDARG = block_size;
-
-
-  result = SDHC_Send_CMD(CMD16);
-
-  if (result == SDHC_RESULT_OK) {
-        (void)SDHC_CMDRSP0;
-  }
-
-  return result;
-}
-
-
-
-// sends ACMD6 to set bus width
-int SDHC_Send_ACMD6(uint32_t address, uint32_t width)
-{
-  uint32_t xfertyp;
-  int result;
-
-  SDHC_CMDARG = address;
-  // first send CMD 55 Application specific command
-  xfertyp = (SDHC_XFERTYP_CMDINX(SDHC_CMD55) | SDHC_XFERTYP_CICEN_MASK |
-             SDHC_XFERTYP_CCCEN_MASK | SDHC_XFERTYP_RSPTYP(SDHC_XFERTYP_RSPTYP_48));
-
-  result = SDHC_Send_CMD(xfertyp);
-
-  if(result == SDHC_RESULT_OK) {
-    (void)SDHC_CMDRSP0;
-  } else {
-    return result;
-  }
-  SDHC_CMDARG = width;
-
-
-
-  result = SDHC_Send_CMD(ACMD6);
-
-  if(result == SDHC_RESULT_OK) {
-        (void)SDHC_CMDRSP0;
-  }
-  return result;
-}
 
 
 
@@ -482,7 +367,7 @@ int SDHC_ReadBlock(uint32_t* pData)
 		if (irqstat & (SDHC_IRQSTAT_DEBE_MASK | SDHC_IRQSTAT_DCE_MASK | SDHC_IRQSTAT_DTOE_MASK)) {
 			SDHC_IRQSTAT = irqstat | SDHC_IRQSTAT_BRR_MASK |
 				SDHC_IRQSTAT_DEBE_MASK | SDHC_IRQSTAT_DCE_MASK | SDHC_IRQSTAT_DTOE_MASK;
-			SDHC_Send_CMD12();
+			SDHC_Send_CMD(CMD12,0);
 			return SDHC_RESULT_ERROR;
 		}
 		while (!(SDHC_PRSSTAT & SDHC_PRSSTAT_BREN_MASK)) { };
@@ -499,45 +384,12 @@ int SDHC_ReadBlock(uint32_t* pData)
 	return SDHC_RESULT_OK;
 }
 
-int SDHC_Send_CMD12(void)
-{
-
-  int result;
-
-  SDHC_CMDARG = 0;
-
-
-  result = SDHC_Send_CMD(CMD12);
-
-  if (result == SDHC_RESULT_OK) {
-  }
-  return result;
-}
-
-
-int SDHC_Send_CMD17(uint32_t sector)
-{
-  int result;
-
-  SDHC_CMDARG = sector;
-
-  SDHC_BLKATTR = SDHC_BLKATTR_BLKCNT(1) | 512;
-
-
-
-  result = SDHC_Send_CMD(CMD17);
-  if (result == SDHC_RESULT_OK) {
-	(void)SDHC_CMDRSP0;
-  }
-
-  return result;
-}
 
 
 int SDHC_Read_Sector(uint32_t sector,uint32_t* pData)
 {
 	int result = 0;
-	SDHC_Send_CMD17(sector);
+	SDHC_Send_CMD(CMD17,sector);
 	result = SDHC_ReadBlock(pData);
 	SDHC -> SYSCTL |= SDHC_SYSCTL_RSTC_MASK;
 	return result;
